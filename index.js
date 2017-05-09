@@ -77,10 +77,12 @@ Object.keys(config.endPoints).forEach((endPointKey) => {
               break
             case 'resize':
               size = operation.size;
-              magick = magick.resize(operation.size[0], operation.size[1], '^')
               break
             case 'crop':
-              magick = magick.crop(size[0], size[1])
+              //magick = magick.resize(size[0], size[1], '^>')
+              magick = magick.gravity('center')
+              magick = magick.crop(size[0], size[1], 0, 0)
+              magick = magick.resize(size[0], size[1])
               break
           }
         })

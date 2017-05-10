@@ -68,32 +68,73 @@ Object.keys(config.endPoints).forEach((endPointKey) => {
       }
       if(req.params.format == 'gif') {
         // for gifs we have to go the gm route (to support animated gifs)
-        let magick = gm(imageStream).noProfile()
-        let size = [null, null]
-        endPoint.operations.forEach((operation) => {
-          switch(operation.type) {
-            case 'rotate':
-              magick = magick.autoOrient()
-              break
-            case 'resize':
-              size = operation.size;
-              break
-            case 'crop':
-              //magick = magick.resize(size[0], size[1], '^>')
-              magick = magick.gravity('center')
-              magick = magick.crop(size[0], size[1], 0, 0)
-              magick = magick.resize(size[0], size[1])
-              break
-          }
-        })
-        res.set('Content-Type', 'image/gif')
-        magick.stream((err, stdout, stderr) => {
+        gm(imageStream).size((err, originalSize) => {
           if(err) {
             next(err)
             return
           }
-          stdout.pipe(res)
-          stderr.on('error', next)
+          // get another stream
+          async.eachSeries(sourceset, open.bind(req.params), (err) => {
+            if(err && err.success) {
+              imageStream = err.stream
+            }
+            else {
+              next(new Error('File not found'))
+              return
+            }
+            let magick = gm(imageStream).noProfile()
+            let size = [null, null], needResize = false
+            endPoint.operations.forEach((operation) => {
+              switch(operation.type) {
+                case 'rotate':
+                  magick = magick.autoOrient()
+                  break
+                case 'resize':
+                  size = operation.size
+                  needResize = true
+                  break
+                case 'crop':
+                  needResize = false
+                  let targetRatio = size[0] / size[1]
+                  let originalRatio = originalSize.width / originalSize.height
+                  let cropX, cropY, cropWidth, cropHeight
+                  if(originalRatio > targetRatio) {
+                    cropWidth = originalSize.height * targetRatio
+                    cropHeight = originalSize.height
+                    cropX = (originalSize.width - cropWidth) / 2
+                    cropY = 0
+                  }
+                  else {
+                    if(originalRatio < targetRatio) {
+                      cropWidth = originalSize.width
+                      cropHeight = originalSize.width / targetRatio
+                      cropX = 0
+                      cropY = (originalSize.height - cropHeight) / 2
+                    }
+                    else {
+                      cropWidth = 0
+                      cropHeight = 0
+                      cropX = 0
+                      cropY = 0
+                    }
+                  }
+                  magick = magick.crop(cropWidth, cropHeight, cropX, cropY).resize(size[0], size[1]).out('+repage')
+                  break
+              }
+            })
+            if(needResize) {
+              magick = magick.resize(size[0], size[1])
+            }
+            res.set('Content-Type', 'image/gif')
+            magick.stream((err, stdout, stderr) => {
+              if(err) {
+                next(err)
+                return
+              }
+              stdout.pipe(res)
+              stderr.on('error', next)
+            })
+          })
         })
       }
       else {

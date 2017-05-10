@@ -123,7 +123,9 @@ Object.keys(config.endPoints).forEach((endPointKey) => {
               }
             })
             if(needResize) {
-              magick = magick.resize(size[0], size[1])
+              if((originalSize.width > size[0] && size[0]) || (originalSize.height > size[1] && size[1])) {
+                magick = magick.resize(size[0], size[1])
+              }
             }
             res.set('Content-Type', 'image/gif')
             magick.stream((err, stdout, stderr) => {
@@ -146,7 +148,12 @@ Object.keys(config.endPoints).forEach((endPointKey) => {
               break
             case 'resize':
               op = op.resize(operation.size[0], operation.size[1])
+              if(operation.withoutEnlargement) {
+                op = op.withoutEnlargement()
+              }
               break
+            case 'withoutEnlargement':
+              op = op.withoutEnlargement()
             case 'crop':
               switch(operation.strategy) {
                 case 'attention':

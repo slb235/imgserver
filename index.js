@@ -5,13 +5,26 @@ const async = require('async')
 const sharp = require('sharp')
 const compile = require('string-template/compile')
 const gs = require('@google-cloud/storage')
+const s3 = require('aws-sdk/clients/s3')
 const gm = require('gm').subClass({ imageMagick: true })
 
 const config = require('../../config')
 
 const app = express()
 
-const storage = gs(config.googleStorage)
+// google storage
+let storage = null
+if(config.googleStorage) {
+  storage = gs(config.googleStorage)
+}
+
+// s3
+let s3Client = null
+if(config.s3) {
+  s3Client = s3.createClient({
+    s3Options: config.s3
+  })
+}
 
 // open stream for file misusing error as return value
 function open(source, callback) {
@@ -36,6 +49,8 @@ function open(source, callback) {
         }
       })
       break
+    case "s3":
+      const file = s3Client.s3.headObject({})
   }
 }
 

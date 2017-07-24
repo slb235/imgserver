@@ -5,7 +5,7 @@ const async = require('async')
 const sharp = require('sharp')
 const compile = require('string-template/compile')
 const gs = require('@google-cloud/storage')
-const s3 = require('aws-sdk/clients/s3')
+const AWS = require('aws-sdk')
 const gm = require('gm').subClass({ imageMagick: true })
 
 const config = require('../../config')
@@ -21,15 +21,14 @@ if(config.googleStorage) {
 // s3
 let s3Client = null
 if(config.s3) {
-  s3Client = s3.createClient({
-    s3Options: config.s3
-  })
+  AWS.config.update(config.s3)
+  s3Client = new AWS.S3({ apiVersion: '2006-03-01' })
 }
 
 // open stream for file misusing error as return value
 function open(source, callback) {
   switch(source.type) {
-    case "file":
+    case 'file':
       const stream = fs.createReadStream(source._target(this))
       stream.on('error', (err) => {
         callback()
@@ -38,7 +37,7 @@ function open(source, callback) {
         callback({ success: true, stream })
       })
       break
-    case "googleStorage":
+    case 'googleStorage':
       const file = source._bucket.file(source._target(this))
       file.exists((err, exists) => {
         if(exists && !err) {
@@ -49,8 +48,19 @@ function open(source, callback) {
         }
       })
       break
-    case "s3":
-      const file = s3Client.s3.headObject({})
+    case 's3':
+      const params = {
+        Bucket: source.bucket,
+        Key: source._target(this)
+      }
+      s3Client.headObject(params, (err, data) => {
+        if(err) {
+          callback()
+        }
+        else {
+          callback({ success: true, stream: s3Client.getObject(params).createReadStream() })
+        }
+      })
   }
 }
 

@@ -4,93 +4,36 @@ const express = require('express')
 const async = require('async')
 const sharp = require('sharp')
 const compile = require('string-template/compile')
-const gs = require('@google-cloud/storage')
-const AWS = require('aws-sdk')
 const gm = require('gm').subClass({ imageMagick: true })
+const ActionboundStorageClient = require('actionbound-storage-client')
 
 const config = require('../../config')
 
+
+const storage = new ActionboundStorageClient(config.storage)
+
 const app = express()
 
-// google storage
-let storage = null
-if(config.googleStorage) {
-  storage = gs(config.googleStorage)
-}
 
-// s3
-let s3Client = null
-if(config.s3) {
-  AWS.config.update(config.s3)
-  s3Client = new AWS.S3({ apiVersion: '2006-03-01' })
-}
-
-// open stream for file misusing error as return value
-function open(source, callback) {
-  switch(source.type) {
-    case 'file':
-      const stream = fs.createReadStream(source._target(this))
-      stream.on('error', (err) => {
-        callback()
-      })
-      stream.on('open', () => {
-        callback({ success: true, stream })
-      })
-      break
-    case 'googleStorage':
-      const file = source._bucket.file(source._target(this))
-      file.exists((err, exists) => {
-        if(exists && !err) {
-          callback({ success: true, stream: file.createReadStream() })
-        }
-        else {
-          callback()
-        }
-      })
-      break
-    case 's3':
-      const params = {
-        Bucket: source.bucket,
-        Key: source._target(this)
-      }
-      s3Client.headObject(params, (err, data) => {
-        if(err) {
-          callback()
-        }
-        else {
-          callback({ success: true, stream: s3Client.getObject(params).createReadStream() })
-        }
-      })
-  }
-}
-
-// initialize sourceset storage if needed (only google storage at the moment)
-Object.keys(config.sourceSets).forEach((set) => {
-  config.sourceSets[set] = config.sourceSets[set].map((source) => {
-    if(source.type == "googleStorage") {
-      return Object.assign(source, { _bucket: storage.bucket(source.bucket) })
-    }
-    else
-      return source
-  })
-})
 
 Object.keys(config.endPoints).forEach((endPointKey) => {
   const endPoint = config.endPoints[endPointKey]
+  /*
   const sourceset = config.sourceSets[endPoint.sourceSet].map((source) => (
     Object.assign(source, { _target: compile(source.target) })
   ))
+  */
+
+  const target = config.sourceSets[endPoint.sourceSet]
 
   app.get(endPointKey, (req, res, next) => {
-    async.eachSeries(sourceset, open.bind(req.params), (err) => {
-      let imageStream
-      if(err && err.success) {
-        imageStream = err.stream
-      }
-      else {
-        next(new Error('File not found'))
-        return
-      }
+    let file = target   
+    for(const key of Object.keys(req.params)) {
+      file = file.replace(`{${key}}`, req.params[key])      
+    }
+    console.log('request for file', file)
+    storage.createReadStream(file)
+    .then((imageStream) => {
       if(req.params.format == 'gif') {
         // for gifs we have to go the gm route (to support animated gifs)
         gm(imageStream).size((err, originalSize) => {
@@ -226,6 +169,11 @@ Object.keys(config.endPoints).forEach((endPointKey) => {
         })
         imageStream.pipe(op).pipe(res)
       }
+    })
+    .catch((error) => {
+      console.log(error)
+      next(new Error('File not found'))
+      return
     })
   })
 })

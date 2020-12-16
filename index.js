@@ -7,7 +7,7 @@ const compile = require('string-template/compile')
 const gm = require('gm').subClass({ imageMagick: true })
 const ActionboundStorageClient = require('actionbound-storage-client')
 
-const config = require('../../config')
+const config = require('./config')
 
 
 const storage = new ActionboundStorageClient(config.storage)
@@ -31,7 +31,6 @@ Object.keys(config.endPoints).forEach((endPointKey) => {
     for(const key of Object.keys(req.params)) {
       file = file.replace(`{${key}}`, req.params[key])      
     }
-    console.log('request for file', file)
     storage.createReadStream(file)
     .then((imageStream) => {
       if(req.params.format == 'gif') {
@@ -41,15 +40,8 @@ Object.keys(config.endPoints).forEach((endPointKey) => {
             next(err)
             return
           }
-          // get another stream
-          async.eachSeries(sourceset, open.bind(req.params), (err) => {
-            if(err && err.success) {
-              imageStream = err.stream
-            }
-            else {
-              next(new Error('File not found'))
-              return
-            }
+          storage.createReadStream(file)
+          .then((imageStream) => {
             let magick = gm(imageStream).noProfile()
             let size = [null, null], needResize = false
             endPoint.operations.forEach((operation) => {
@@ -105,43 +97,50 @@ Object.keys(config.endPoints).forEach((endPointKey) => {
               stderr.on('error', next)
             })
           })
+          .catch((err) => {
+            next(err)
+          })
         })
       }
       else {
         let op = sharp()
+        let size = null
+        let needResize = false
+        let needResizeWithoutEnlargement = false
         endPoint.operations.forEach((operation) => {
+
           switch(operation.type) {
             case 'rotate':
               op = op.rotate()
               break
             case 'resize':
-              op = op.resize(operation.size[0], operation.size[1])
+              size = operation.size
+              needResize = true
               if(operation.withoutEnlargement) {
-                op = op.withoutEnlargement()
+                needResizeWithoutEnlargement = true
               }
               break
-            case 'withoutEnlargement':
-              op = op.withoutEnlargement()
             case 'crop':
+              needResize = false
               switch(operation.strategy) {
                 case 'attention':
-                  op = op.crop(sharp.strategy.attention)
+                  op.resize(size[0], size[1], { fit: 'cover', position: 'attention' })
                   break
                 default:
-                  op = op.crop(sharp.gravity.centre)
+                  op.resize(size[0], size[1], { fit: 'cover', position: 'center' })
               }
-              break
-            case 'blur':
-              op = op.blur(20)
-              break
-            case 'overlay':
-              op = op.overlayWith(new Buffer(operation.image), { gravity: sharp.gravity.center })
-              break
-            case 'negate':
-              op = op.negate()
               break
             default:
               throw new Error('Unsupportet operation: ' + operation.type)
+          }
+
+          if(needResize) {
+            if(needResizeWithoutEnlargement) {
+              op.resize(size[0], size[1], { fit: 'inside', withoutEnlargement: true })
+            }
+            else {
+              op.resize(size[0], size[1])
+            }
           }
         })
         let contentType
@@ -179,6 +178,7 @@ Object.keys(config.endPoints).forEach((endPointKey) => {
 })
 
 app.use((err, req, res, next) => {
+  console.log("error", err)
   res.status(404).send('File not found')
 })
 

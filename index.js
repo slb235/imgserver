@@ -14,7 +14,9 @@ const storage = new ActionboundStorageClient(config.storage)
 
 const app = express()
 
-
+app.get('/health', (req, res) => {
+  res.end('good')
+})
 
 Object.keys(config.endPoints).forEach((endPointKey) => {
   const endPoint = config.endPoints[endPointKey]

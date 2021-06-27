@@ -132,6 +132,14 @@ Object.keys(config.endPoints).forEach((endPointKey) => {
                   op.resize(size[0], size[1], { fit: 'cover', position: 'center' })
               }
               break
+            case 'paramcrop':
+              op.extract({
+                left: Number(req.params.left),
+                top: Number(req.params.top),
+                width: Number(req.params.width),
+                height: Number(req.params.height)
+              })
+              break
             default:
               throw new Error('Unsupportet operation: ' + operation.type)
           }

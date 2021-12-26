@@ -1,0 +1,43 @@
+{
+  "listen": {
+    "host": "0.0.0.0",
+    "port": 3001
+  },
+  "storage": {
+    "url": "http://localhost:3000"
+  },
+  "sourceSets": {
+    "default": "/{filename}.{format}"
+  },
+  "outputOptions": {
+    "jpeg": {
+      "quality": 95,
+      "progressive": true
+    },
+    "webp": {
+      "quality": 70
+    },
+    "png": {
+      "compressionLevel": 5
+    }
+  },
+  "endPoints": {
+    "/:filename.:format": {
+      "sourceSet": "default",
+      "operations": [
+        {
+          "type": "resize",
+          "size": [20,500]
+        }
+      ]
+    },
+    "/:left/:top/:width/:height/:filename.:format": {
+      "sourceSet": "default",
+      "operations": [
+        {
+          "type": "paramcrop"
+        }
+      ]
+    }
+  }
+}

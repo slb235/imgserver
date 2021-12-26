@@ -9,11 +9,10 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "async": "^2.3.0",
+    "actionbound-gif-resize-stream": "0.0.3",
+    "actionbound-storage-client": "1.0.4",
     "express": "^4.15.2",
-    "gm": "^1.23.0",
-    "sharp": "^0.26.3",
-    "actionbound-storage-client": "1.0.0",
-    "string-template": "^1.0.0"
+    "image-size": "^1.0.0",
+    "sharp": "^0.29.3"
   }
 }

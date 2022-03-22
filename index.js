@@ -5,7 +5,7 @@ const gifResize = require('actionbound-gif-resize-stream')
 const ActionboundStorageClient = require('actionbound-storage-client')
 const sizeOf = require('image-size')
 
-const config = require('./config')
+const config = require('./config/config')
 
 const storage = new ActionboundStorageClient(config.storage)
 

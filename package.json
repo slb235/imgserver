@@ -13,6 +13,6 @@
     "actionbound-storage-client": "1.0.4",
     "express": "^4.15.2",
     "image-size": "^1.0.0",
-    "sharp": "^0.29.3"
+    "sharp": "^0.30.5"
   }
 }

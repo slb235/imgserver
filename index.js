@@ -127,7 +127,7 @@ Object.keys(config.endPoints).forEach((endPointKey) => {
         gif.then(() => res.end()).catch(() => res.end())
       }
       else {
-        let op = sharp()
+        let op = sharp({ failOn: 'error' })
         let size = null
         let needResize = false
         let needResizeWithoutEnlargement = false
